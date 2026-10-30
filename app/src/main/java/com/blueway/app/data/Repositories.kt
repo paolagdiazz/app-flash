@@ -194,6 +194,8 @@ class LocalStore(context: Context) {
                 o.getString("id"), ReportType.valueOf(o.getString("t")),
                 LatLon(o.getDouble("la"), o.getDouble("lo")), o.getString("d"),
                 o.getLong("c"), o.getLong("e"), o.getInt("y"), o.getInt("n"), false, o.getBoolean("m"),
+                voted = o.optBoolean("v", false),
+                synced = o.optBoolean("s", false),
             )
         }
     }.getOrDefault(emptyList())
@@ -205,9 +207,15 @@ class LocalStore(context: Context) {
                 JSONObject().put("id", it.id).put("t", it.type.name).put("la", it.point.lat).put("lo", it.point.lon)
                     .put("d", it.description).put("c", it.createdAt).put("e", it.expiresAt)
                     .put("y", it.confirmations).put("n", it.rejections).put("m", it.mine)
+                    .put("v", it.voted).put("s", it.synced)
             },
         )
         prefs.edit().putString("reports", a.toString()).apply()
+    }
+
+    /** Identificador aleatorio de esta instalación. No está ligado a ninguna cuenta ni dato personal. */
+    fun deviceId(): String = prefs.getString("device", null) ?: UUID.randomUUID().toString().also {
+        prefs.edit().putString("device", it).apply()
     }
 
     fun loadVotes(): Set<String> = prefs.getStringSet("votes", emptySet()) ?: emptySet()

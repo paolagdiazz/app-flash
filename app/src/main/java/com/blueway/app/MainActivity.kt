@@ -17,4 +17,14 @@ class MainActivity : ComponentActivity() {
         MapLibre.getInstance(this)
         setContent { BlueWayRoot(viewModel) }
     }
+
+    override fun onStart() {
+        super.onStart()
+        viewModel.setForeground(true)
+    }
+
+    override fun onStop() {
+        viewModel.setForeground(false)
+        super.onStop()
+    }
 }

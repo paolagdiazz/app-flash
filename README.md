@@ -33,7 +33,7 @@ Cada push a `main` genera una versión nueva, que se instala encima de la anteri
 | Navegación guiada | GPS, indicaciones paso a paso, recálculo, voz opcional |
 | Ficha de zona | Nivel de ruido, equipamiento real, afluencia, curva de 24 h |
 | Filtros de ruta | Cambian de verdad el recorrido |
-| Avisos | Crear, confirmar, descartar, caducar y evitar duplicados |
+| Avisos | Crear, confirmar, descartar, caducar y evitar duplicados; compartidos entre móviles si hay servidor configurado |
 | Leyenda de ruido | Niveles y origen de cada dato |
 | Perfil | Lugares, rutas guardadas, notificaciones, alto contraste, reducir movimiento |
 
@@ -44,13 +44,13 @@ Cada push a `main` genera una versión nueva, que se instala encima de la anteri
 | Calles, parques, bancos, cafeterías, arbolado | OpenStreetMap (descarga del 30/10/2026) | Real |
 | Ruido por calle | Modelo propio según tipo de vía, cercanía al tráfico y hora | **Estimado** |
 | Sensores | 8 puntos de ejemplo que derivan del modelo | **Sensor simulado** |
-| Avisos marcados como «Ejemplo» | Creados al abrir la app | **Ejemplo** |
-| Avisos propios | Creados en el teléfono | **Avisado** |
+| Avisos marcados como «Ejemplo» | Creados al abrir la app, solo si no hay servidor | **Ejemplo** |
+| Avisos de personas usuarias | Creados en los teléfonos | **Avisado** |
 
 Limitaciones conocidas:
 
 - Solo cubre Málaga capital.
-- Los avisos no se comparten entre móviles porque aún no hay servidor.
+- Los avisos solo se comparten entre móviles si `backend.properties` apunta a un servidor (ver [backend/README.md](backend/README.md)).
 - El modelo de ruido no está calibrado con mediciones reales.
 - La app no se ha validado con personas autistas.
 - La firma del APK es de desarrollo: no sirve para publicar en Google Play.

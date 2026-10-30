@@ -31,6 +31,8 @@ import com.blueway.app.data.ReportType
 import com.blueway.app.data.RouteMode
 import com.blueway.app.data.RouteResult
 import com.blueway.app.data.SavedRoute
+import com.blueway.app.data.SharedReports
+import com.blueway.app.data.SharedReportsException
 import com.blueway.app.data.Zone
 import com.blueway.app.data.normalizeText
 import com.blueway.app.engine.RouteEngine
@@ -102,6 +104,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // Avisos
     val reports = mutableStateListOf<Report>()
+    private val deviceId = store.deviceId()
+    var lastSync by mutableStateOf<Long?>(null); private set
+    var syncFailed by mutableStateOf(false); private set
+    private var syncing = false
+    private var foreground = true
     private val votes = store.loadVotes().toMutableSet()
     var selectedReport by mutableStateOf<Report?>(null)
     var reportDraftType by mutableStateOf<ReportType?>(null)
@@ -143,8 +150,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val currentHour: Int get() = city?.noise?.currentHour() ?: 12
 
     init {
-        reports.addAll(ReportRules.samples())
+        // Los avisos de ejemplo solo tienen sentido si no hay servidor compartido.
+        if (!SharedReports.enabled) reports.addAll(ReportRules.samples())
         reports.addAll(store.loadReports())
+        if (SharedReports.enabled) {
+            viewModelScope.launch {
+                while (true) {
+                    if (foreground) syncReports()
+                    delay(SYNC_INTERVAL_MS)
+                }
+            }
+        }
         viewModelScope.launch {
             try {
                 city = withContext(Dispatchers.Default) { CityLoader.load(getApplication()) }
@@ -434,6 +450,53 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // --- Avisos ---
+    fun setForeground(value: Boolean) {
+        val returning = value && !foreground
+        foreground = value
+        if (returning && SharedReports.enabled) viewModelScope.launch { syncReports() }
+    }
+
+    /** Sube los avisos pendientes y descarga los de todo el mundo. Sin conexión se conserva lo último conocido. */
+    suspend fun syncReports() {
+        if (syncing || !SharedReports.enabled) return
+        syncing = true
+        try {
+            val now = System.currentTimeMillis()
+            val pending = reports.filter { !it.synced && it.expiresAt > now }
+            val rejected = HashSet<String>()
+            val server = withContext(Dispatchers.IO) {
+                for (report in pending) {
+                    try {
+                        SharedReports.create(deviceId, report)
+                    } catch (e: SharedReportsException) {
+                        // El servidor no lo acepta (fuera de zona, demasiados avisos): no se reintenta sin fin,
+                        // salvo el límite temporal, que se resolverá solo.
+                        if (e.code != "rate_limited" && e.code != "busy") rejected.add(report.id)
+                    }
+                }
+                SharedReports.list(deviceId)
+            }
+            val before = activeReports().map { it.id to it.status() }.toSet()
+            if (rejected.isNotEmpty()) message = "Un aviso no se ha podido publicar porque el servidor no lo ha aceptado."
+            // Un pendiente aceptado ya viene del servidor con su id definitivo.
+            val stillPending = pending.filter { p ->
+                p.id !in rejected && server.none { s -> s.type == p.type && metersBetween(s.point, p.point) <= ReportRules.DUPLICATE_RADIUS }
+            }
+            reports.clear()
+            reports.addAll(stillPending + server)
+            selectedReport = selectedReport?.let { old -> reports.firstOrNull { it.id == old.id } }
+            store.saveReports(reports)
+            lastSync = System.currentTimeMillis()
+            syncFailed = false
+            val after = activeReports().map { it.id to it.status() }.toSet()
+            if (before != after && navRoute == null) recompute()
+        } catch (_: Exception) {
+            syncFailed = true
+        } finally {
+            syncing = false
+        }
+    }
+
     fun activeReports(): List<Report> {
         val now = System.currentTimeMillis()
         return reports.filter { it.isActive(now) }
@@ -485,6 +548,27 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun submitReport(type: ReportType, point: LatLon, description: String) {
+        if (SharedReports.enabled) {
+            // Un sensor simulado nunca confirma un aviso que van a ver otras personas.
+            val duplicate = ReportRules.findDuplicate(reports, type, point)
+            if (duplicate?.mine == true) {
+                message = "Ya enviaste un aviso igual cerca de aquí."
+            } else {
+                reports.add(0, ReportRules.create(type, point, description, false).copy(synced = false))
+                store.saveReports(reports)
+                message = if (duplicate != null) {
+                    "Ya había un aviso igual cerca. Lo reforzamos con el tuyo."
+                } else {
+                    "Aviso enviado de forma anónima. Queda pendiente de confirmar."
+                }
+                viewModelScope.launch { syncReports() }
+            }
+            reportSheetOpen = false
+            reportDraftType = null
+            pickingReportLocation = false
+            recompute()
+            return
+        }
         val c = city
         val duplicate = ReportRules.findDuplicate(reports, type, point)
         if (duplicate != null) {
@@ -530,10 +614,25 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.saveReports(reports)
     }
 
-    fun canVote(report: Report) = !report.mine && report.id !in votes
+    fun canVote(report: Report) = !report.mine && !report.voted && report.synced && report.id !in votes
 
     fun voteReport(report: Report, stillThere: Boolean) {
         if (!canVote(report)) return
+        if (SharedReports.enabled) {
+            viewModelScope.launch {
+                try {
+                    withContext(Dispatchers.IO) { SharedReports.vote(deviceId, report.id, stillThere) }
+                    message = if (stillThere) "Gracias. Hemos sumado tu confirmación." else "Gracias. Hemos sumado tu valoración."
+                    syncReports()
+                } catch (e: SharedReportsException) {
+                    message = if (e.code == "already_voted") "Ya habías valorado este aviso." else "Este aviso ya no está disponible."
+                    syncReports()
+                } catch (_: Exception) {
+                    message = "Sin conexión. Inténtalo de nuevo más tarde."
+                }
+            }
+            return
+        }
         votes.add(report.id)
         store.saveVotes(votes)
         confirmInternal(report, stillThere)
@@ -542,6 +641,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun removeReport(report: Report) {
+        if (SharedReports.enabled && report.synced) {
+            viewModelScope.launch {
+                try {
+                    withContext(Dispatchers.IO) { SharedReports.delete(deviceId, report.id) }
+                    selectedReport = null
+                    syncReports()
+                } catch (_: Exception) {
+                    message = "No se ha podido eliminar. Comprueba la conexión."
+                }
+            }
+            return
+        }
         reports.removeAll { it.id == report.id }
         selectedReport = null
         store.saveReports(reports)
@@ -737,5 +848,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         private const val OFF_ROUTE_METERS = 45.0
         private const val ARRIVAL_METERS = 15.0
         private const val ANNOUNCE_METERS = 60.0
+        private const val SYNC_INTERVAL_MS = 60_000L
     }
 }

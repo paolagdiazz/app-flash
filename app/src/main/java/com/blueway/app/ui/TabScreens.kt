@@ -72,6 +72,7 @@ import com.blueway.app.data.NoiseLevel
 import com.blueway.app.data.ReportType
 import com.blueway.app.data.RouteMode
 import com.blueway.app.data.RouteResult
+import com.blueway.app.data.SharedReports
 import kotlinx.coroutines.launch
 
 private class WelcomePage(val title: String, val body: String, val images: List<Int>)
@@ -149,10 +150,13 @@ fun OnboardingScreen(onFinish: () -> Unit) {
                     },
                 )
                 Spacer(Modifier.height(8.dp))
-                if (pager.currentPage == 0) {
-                    Text(PAGES[0].body, color = bw.muted, style = MaterialTheme.typography.bodyMedium)
-                    Spacer(Modifier.height(8.dp))
-                }
+                // El lema ocupa siempre su sitio para que el botón no cambie de posición entre páginas.
+                Text(
+                    PAGES[0].body,
+                    color = if (pager.currentPage == 0) bw.muted else Color.Transparent,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Spacer(Modifier.height(8.dp))
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.semantics { contentDescription = "Página ${pager.currentPage + 1} de ${PAGES.size}" },
@@ -453,7 +457,11 @@ fun HelpScreen(vm: AppViewModel) = TextScreen(
         "¿Cómo envío un aviso?" to "Toca el botón del megáfono en el mapa, elige el tipo, confirma el lugar y envíalo. No necesitas cuenta. Si ya hay uno igual cerca, se refuerza en lugar de duplicarse.",
         "¿Por qué dice «trayecto simulado»?" to "Porque la salida no es tu ubicación real, por ejemplo si estás fuera de Málaga o has elegido otra salida. Sirve para ver la ruta sin caminarla.",
         "¿La app funciona sin internet?" to "Las rutas, el ruido estimado y la búsqueda de calles sí. Sin conexión no se descarga el mapa de fondo ni funciona la búsqueda ampliada de lugares.",
-        "Privacidad" to "Sin cuenta. No se graba audio y no se guardan tus recorridos GPS. Tus ajustes, favoritos y avisos se quedan en este teléfono. Si buscas un lugar, el texto se envía a Photon (komoot), y el mapa se descarga de OpenFreeMap.",
+        "Privacidad" to if (SharedReports.enabled) {
+            "Sin cuenta. No se graba audio y no se guardan tus recorridos GPS. Tus ajustes y favoritos se quedan en este teléfono. Los avisos que envías se comparten con una ubicación aproximada y un identificador aleatorio que nadie más ve, y se borran una semana después de caducar. Si buscas un lugar, el texto se envía a Photon (komoot), y el mapa se descarga de OpenFreeMap."
+        } else {
+            "Sin cuenta. No se graba audio y no se guardan tus recorridos GPS. Tus ajustes, favoritos y avisos se quedan en este teléfono. Si buscas un lugar, el texto se envía a Photon (komoot), y el mapa se descarga de OpenFreeMap."
+        },
     ),
 )
 
@@ -464,7 +472,7 @@ fun AboutScreen(vm: AppViewModel) = TextScreen(
         "Dirección a la calma" to "BlueWay ayuda a personas autistas y con sensibilidad sensorial a planificar sus desplazamientos por Málaga anticipando el entorno sonoro.",
         "Qué es real y qué no" to "Las calles, parques, bancos y cafeterías son datos reales de OpenStreetMap. El ruido es una estimación según el tipo de vía, la cercanía al tráfico y la hora. Los sensores son simulados y los avisos marcados como «Ejemplo» son de prueba: todavía no hay sensores instalados.",
         "Lo que BlueWay no promete" to "La app informa, pero no garantiza que una ruta sea silenciosa, segura o adecuada para todas las personas. Tampoco ha sido validada todavía con personas autistas.",
-        "Limitaciones de esta versión" to "Cubre Málaga capital. Los avisos se guardan solo en tu teléfono y aún no se comparten con otras personas, porque esta versión no tiene servidor.",
+        "Limitaciones de esta versión" to if (SharedReports.enabled) "Cubre Málaga capital. Los avisos los envían personas usuarias y pueden no estar comprobados." else "Cubre Málaga capital. Los avisos se guardan solo en tu teléfono y aún no se comparten con otras personas.",
         "Créditos" to "Mapa base: OpenFreeMap y OpenMapTiles. Datos: © colaboradores de OpenStreetMap (ODbL). Búsqueda: Photon (komoot). Tipografía: Nunito (OFL). Motor del mapa: MapLibre.",
     ),
 )

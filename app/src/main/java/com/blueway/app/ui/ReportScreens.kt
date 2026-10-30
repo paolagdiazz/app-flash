@@ -59,6 +59,7 @@ import com.blueway.app.data.Report
 import com.blueway.app.data.ReportRules
 import com.blueway.app.data.ReportStatus
 import com.blueway.app.data.ReportType
+import com.blueway.app.data.SharedReports
 import com.blueway.app.engine.metersBetween
 
 /** Pantalla "Avisos en tu ruta". */
@@ -113,6 +114,18 @@ fun AlertsScreen(vm: AppViewModel) {
                 if (past.isNotEmpty()) {
                     item { SectionTitle("Caducados o descartados") }
                     items(past, key = { "p" + it.first.id }) { ReportCard(vm, it.first, it.second) }
+                }
+                if (SharedReports.enabled) {
+                    item {
+                        Text(
+                            when {
+                                vm.syncFailed -> "Sin conexión. Mostramos los últimos avisos conocidos."
+                                vm.lastSync != null -> "Avisos compartidos entre personas usuarias. Actualizado: ${timeAgo(vm.lastSync!!).lowercase()}."
+                                else -> "Actualizando avisos…"
+                            },
+                            style = MaterialTheme.typography.bodySmall, color = bw.muted,
+                        )
+                    }
                 }
                 item {
                     Spacer(Modifier.height(6.dp))
@@ -301,7 +314,8 @@ private fun ReportForm(vm: AppViewModel, type: ReportType) {
             maxLines = 3,
         )
         Text(
-            "Caduca en ${if (type.expiresHours >= 24) "${type.expiresHours / 24} días" else "${type.expiresHours} h"}. Por ahora se guarda solo en este teléfono.",
+            "Caduca en ${if (type.expiresHours >= 24) "${type.expiresHours / 24} días" else "${type.expiresHours} h"}. " +
+                if (SharedReports.enabled) "Lo verán otras personas, sin saber quién lo envió." else "Por ahora se guarda solo en este teléfono.",
             style = MaterialTheme.typography.bodySmall, color = bw.muted,
         )
         GradientButton("Enviar aviso", {

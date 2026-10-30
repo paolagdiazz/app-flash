@@ -158,6 +158,10 @@ data class Report(
     val rejections: Int,
     val isSample: Boolean,
     val mine: Boolean,
+    /** Ya valorado desde este teléfono. */
+    val voted: Boolean = false,
+    /** False mientras un aviso propio espera a subirse al servidor. */
+    val synced: Boolean = true,
 ) {
     fun status(now: Long = System.currentTimeMillis()): ReportStatus = when {
         rejections >= 2 && rejections > confirmations -> ReportStatus.DISMISSED
