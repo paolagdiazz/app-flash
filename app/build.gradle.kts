@@ -13,8 +13,8 @@ android {
         applicationId = "com.blueway.app"
         minSdk = 26
         targetSdk = 35
-        // CI usa el número de ejecución para que cada APK actualice al anterior sin desinstalar.
-        versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()?.plus(1) ?: 1
+        // Minutos desde sep. 2026: siempre crece, tanto en el PC como en CI, y cada APK actualiza al anterior.
+        versionCode = ((System.currentTimeMillis() / 1000 - 1_790_000_000L) / 60).toInt()
         versionName = "0.1." + (System.getenv("GITHUB_RUN_NUMBER") ?: "0")
     }
 

@@ -18,12 +18,15 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-      - uses: android-actions/setup-android@v3
+      # El runner ya trae el SDK de Android en ANDROID_HOME.
       - name: Instalar plataforma Android
-        run: sdkmanager --install "platforms;android-37.0" "build-tools;36.0.0"
-      - uses: gradle/actions/setup-gradle@v4
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" --install "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
+          ls "$ANDROID_HOME/platforms"
       - name: Tests y compilación
-        run: ./gradlew :app:testDebugUnitTest :app:assembleRelease --console=plain
+        run: ./gradlew :app:testDebugUnitTest :app:assembleRelease --console=plain --no-daemon
       - name: Preparar APK
         run: cp app/build/outputs/apk/release/app-release.apk BlueWay.apk
       - uses: actions/upload-artifact@v4
