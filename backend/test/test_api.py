@@ -2,7 +2,7 @@
 """Pruebas de la API de avisos.
 
 Uso: python backend/test/test_api.py [url]
-Ojo: crea datos de prueba, que no se borran solos hasta que caducan.
+Necesita una base de datos sin avisos cerca de los puntos de prueba. Al terminar borra lo que ha creado.
 """
 import json
 import sys
@@ -46,8 +46,14 @@ def new_device():
     return str(uuid.uuid4())
 
 
+created = []
+
+
 def create(device, type_="WORKS", lat=LARIOS["p_lat"], lon=LARIOS["p_lon"], text=""):
-    return rpc("create_report", p_device=device, p_type=type_, p_lat=lat, p_lon=lon, p_description=text)
+    result = rpc("create_report", p_device=device, p_type=type_, p_lat=lat, p_lon=lon, p_description=text)
+    if result[0] == 200 and not result[1][0]["merged"]:
+        created.append((device, result[1][0]["id"]))
+    return result
 
 
 def find(device, rid):
@@ -126,6 +132,11 @@ check("ya no aparece", find(b, rid) is None)
 g = new_device()
 results = [create(g, "GENERAL", 36.70 + i * 0.005, -4.50 + i * 0.005) for i in range(6)]
 check("límite por dispositivo", results[4][0] == 200 and error_of(results[5]) == "rate_limited", str(results[5]))
+
+for device, report_id in created:
+    rpc("delete_report", p_device=device, p_id=report_id)
+left = {r["id"] for r in rpc("list_reports", p_device=new_device())[1]} & {i for _, i in created}
+check("limpieza de los datos de prueba", not left, str(left))
 
 print("\nResultado:", "TODO OK" if not fails else f"{len(fails)} fallos: {fails}")
 sys.exit(1 if fails else 0)
