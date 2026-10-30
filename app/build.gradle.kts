@@ -8,7 +8,6 @@ plugins {
 // Servidor de avisos: backend.properties, que se puede sobrescribir para pruebas con -PreportsApiUrl.
 val backend = Properties().apply { rootProject.file("backend.properties").inputStream().use { load(it) } }
 val reportsUrl = (findProperty("reportsApiUrl") as String?) ?: backend.getProperty("REPORTS_API_URL", "")
-val reportsKey = (findProperty("reportsApiKey") as String?) ?: backend.getProperty("REPORTS_API_KEY", "")
 
 android {
     namespace = "com.blueway.app"
@@ -24,7 +23,6 @@ android {
         versionCode = ((System.currentTimeMillis() / 1000 - 1_790_000_000L) / 60).toInt()
         versionName = "0.1." + (System.getenv("GITHUB_RUN_NUMBER") ?: "0")
         buildConfigField("String", "REPORTS_API_URL", "\"$reportsUrl\"")
-        buildConfigField("String", "REPORTS_API_KEY", "\"$reportsKey\"")
     }
 
     // Firma de desarrollo compartida (no secreta): permite actualizar entre builds locales y de CI.

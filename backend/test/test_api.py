@@ -2,10 +2,9 @@
 """Pruebas de la API de avisos.
 
 Uso: python backend/test/test_api.py [url]
-Contra Supabase: url = <proyecto>/rest/v1 y la clave pública en la variable BLUEWAY_API_KEY.
+Ojo: crea datos de prueba, que no se borran solos hasta que caducan.
 """
 import json
-import os
 import sys
 import urllib.error
 import urllib.request
@@ -19,11 +18,6 @@ fails = []
 def call(path, body=None, method="POST"):
     data = None if body is None else json.dumps(body).encode()
     headers = {"Content-Type": "application/json", "User-Agent": "BlueWay-tests"}
-    key = os.environ.get("BLUEWAY_API_KEY", "")
-    if key:
-        headers["apikey"] = key
-        if not key.startswith("sb_"):
-            headers["Authorization"] = f"Bearer {key}"
     req = urllib.request.Request(BASE + path, data, headers, method=method)
     try:
         with urllib.request.urlopen(req, timeout=10) as r:
@@ -87,6 +81,13 @@ long_id = create(c, "GENERAL", 36.7300, -4.4000, "x" * 500)
 check("descripción recortada", find(c, long_id[1][0]["id"])["description"] == "x" * 120)
 inj = create(c, "EVENT", 36.7310, -4.4010, "'); drop table bw_reports; --")
 check("inyección SQL inofensiva", inj[0] == 200 and rpc("list_reports", p_device=c)[0] == 200)
+
+# Peticiones malformadas
+check("identificador no válido", error_of(rpc("list_reports", p_device="hola")) == "invalid_device")
+check("coordenadas no numéricas", error_of(rpc("create_report", p_device=a, p_type="WORKS", p_lat="x", p_lon="y", p_description="")) == "out_of_area")
+check("tipo heredado de JS rechazado", error_of(create(a, "constructor")) == "invalid_type")
+check("cuerpo demasiado grande", call("/rpc/list_reports", {"p_device": a, "relleno": "x" * 3000})[0] == 413)
+check("método GET no permitido", call("/rpc/list_reports", method="GET")[0] == 404)
 
 # Duplicados
 dup = create(b)

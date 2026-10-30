@@ -58,6 +58,7 @@ Limitaciones conocidas:
 ## Arquitectura
 
 - **Kotlin + Jetpack Compose**, sin API keys ni cuentas.
+- **Avisos compartidos** en un Cloudflare Worker con base de datos D1 (`backend/worker.js`).
 - **MapLibre** con teselas de OpenFreeMap y estilo propio (`app/src/main/assets/map_style.json`).
 - **Rutas en el propio móvil**: A* sobre el grafo peatonal de Málaga con costes según ruido, afluencia, zonas verdes y accesibilidad (`engine/RouteEngine.kt`).
 - **Persistencia local** en SharedPreferences: no hay recorridos GPS ni audio guardados.

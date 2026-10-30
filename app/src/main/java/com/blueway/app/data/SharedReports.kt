@@ -7,13 +7,12 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 
-/** Error del servidor con el código que devuelve backend/schema.sql. */
+/** Error del servidor con el código que devuelve backend/worker.js. */
 class SharedReportsException(val code: String) : IOException(code)
 
 /** Cliente de los avisos compartidos. Solo envía el identificador aleatorio de la instalación y el aviso. */
 object SharedReports {
     private val baseUrl = BuildConfig.REPORTS_API_URL.trimEnd('/')
-    private val apiKey = BuildConfig.REPORTS_API_KEY
 
     val enabled: Boolean get() = baseUrl.isNotEmpty()
 
@@ -66,11 +65,6 @@ object SharedReports {
         conn.doOutput = true
         conn.setRequestProperty("Content-Type", "application/json")
         conn.setRequestProperty("User-Agent", "BlueWay-Android")
-        if (apiKey.isNotEmpty()) {
-            conn.setRequestProperty("apikey", apiKey)
-            // Las claves antiguas de Supabase son JWT y también van aquí; las "sb_publishable_" no.
-            if (!apiKey.startsWith("sb_")) conn.setRequestProperty("Authorization", "Bearer $apiKey")
-        }
         try {
             conn.outputStream.use { it.write(body.toString().toByteArray()) }
             val status = conn.responseCode
