@@ -157,7 +157,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             viewModelScope.launch {
                 while (true) {
                     if (foreground) syncReports()
-                    delay(SYNC_INTERVAL_MS)
+                    delay(if (syncFailed) SYNC_RETRY_MS else SYNC_INTERVAL_MS)
                 }
             }
         }
@@ -482,10 +482,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val stillPending = pending.filter { p ->
                 p.id !in rejected && server.none { s -> s.type == p.type && metersBetween(s.point, p.point) <= ReportRules.DUPLICATE_RADIUS }
             }
-            reports.clear()
-            reports.addAll(stillPending + server)
-            selectedReport = selectedReport?.let { old -> reports.firstOrNull { it.id == old.id } }
-            store.saveReports(reports)
+            // Se refresca cada pocos segundos: sin cambios no se toca el estado, para no redibujar ni escribir en disco.
+            val merged = stillPending + server
+            if (merged != reports.toList()) {
+                reports.clear()
+                reports.addAll(merged)
+                selectedReport = selectedReport?.let { old -> reports.firstOrNull { it.id == old.id } }
+                store.saveReports(reports)
+            }
             lastSync = System.currentTimeMillis()
             syncFailed = false
             val after = activeReports().map { it.id to it.status() }.toSet()
@@ -848,6 +852,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         private const val OFF_ROUTE_METERS = 45.0
         private const val ARRIVAL_METERS = 15.0
         private const val ANNOUNCE_METERS = 60.0
-        private const val SYNC_INTERVAL_MS = 60_000L
+        private const val SYNC_INTERVAL_MS = 2_000L
+        private const val SYNC_RETRY_MS = 15_000L
     }
 }
